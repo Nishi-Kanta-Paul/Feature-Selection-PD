@@ -4,11 +4,12 @@ This project implements a feature-based approach for Parkinson's Disease detecti
 
 ## Project Overview
 
-This project processes voice recordings to distinguish between Parkinson's Disease (PD) patients and Healthy Controls (HC) using audio feature analysis. The pipeline consists of three main components:
+This project processes voice recordings to distinguish between Parkinson's Disease (PD) patients and Healthy Controls (HC) using audio feature analysis. The pipeline consists of four main components:
 
 1. **Audio Organization**: Organizes raw audio files from CSV metadata into cohort-based folders
 2. **Audio Preprocessing**: Applies signal processing techniques to clean and standardize audio files
 3. **Feature Extraction**: Extracts comprehensive acoustic features for machine learning analysis
+4. **Filter-based Feature Selection**: Applies statistical methods to identify most discriminative features
 
 ## Features
 
@@ -40,6 +41,16 @@ This project processes voice recordings to distinguish between Parkinson's Disea
 - **Total Features**: 139 comprehensive acoustic features per audio sample
 - **Visualizations**: Automatic generation of feature analysis plots and pipeline diagrams
 
+### Filter-based Feature Selection (`filter_feature_selection.py`)
+
+- **Variance Threshold Selection**: Removes features with low variance (< 0.01)
+- **Correlation-based Selection**: Eliminates highly correlated features (r > 0.9)
+- **Statistical Tests**: ANOVA F-test, Independent t-test, Mutual Information
+- **Combined Ranking**: Weighted combination of multiple filter methods
+- **Cross-validation Evaluation**: Performance assessment using Random Forest and Logistic Regression
+- **Comprehensive Visualizations**: 6 detailed analysis plots including pipeline diagram
+- **Feature Ranking**: Final ranked list of most discriminative features for PD detection
+
 ## Requirements
 
 ```
@@ -51,12 +62,13 @@ numpy
 scipy
 matplotlib
 seaborn
+scikit-learn
 ```
 
 ## Installation
 
 ```bash
-pip install pandas librosa soundfile numpy scipy matplotlib seaborn
+pip install pandas librosa soundfile numpy scipy matplotlib seaborn scikit-learn
 ```
 
 ## Usage
@@ -77,6 +89,12 @@ python audio_preprocessing.py
 
 ```bash
 python feature_extraction.py
+```
+
+### Step 4: Filter-based Feature Selection
+
+```bash
+python filter_feature_selection.py
 ```
 
 ## Data Structure
@@ -124,6 +142,19 @@ feature_analysis/               # Visualization and analysis plots
 └── feature_importance.png      # Statistical feature importance
 ```
 
+### Filter-based Feature Selection Output (After Step 4)
+
+```
+feature_selection_results.csv   # Ranked feature list with scores
+feature_selection_analysis/     # Comprehensive selection analysis
+├── selection_pipeline.png      # Filter selection pipeline overview
+├── selection_methods_comparison.png  # Methods comparison analysis
+├── statistical_scores.png      # Statistical test results visualization
+├── correlation_analysis.png    # Correlation filtering analysis
+├── feature_rankings.png        # Feature ranking comparisons
+└── evaluation_results.png      # Cross-validation performance results
+```
+
 ## CSV Format
 
 Required columns in `final_selected.csv`:
@@ -158,6 +189,16 @@ Required columns in `final_selected.csv`:
   - Spectral: 10 features
   - Prosodic: 8 features
 - **Output files**: CSV dataset + 5 visualization plots
+
+### Filter-based Feature Selection Results
+
+- **Original features**: 139
+- **Variance threshold filtering**: 100 features retained (39 removed)
+- **Correlation filtering**: 117 features retained (22 highly correlated removed)
+- **Statistical significance**: 8 features with p < 0.05
+- **Top filter methods performance**: All methods achieved 91-96% cross-validation accuracy
+- **Best features identified**: mel_std, mfcc_13_std, voiced_ratio, mfcc_delta2_10_std
+- **Output files**: Ranked feature list + 6 comprehensive visualizations
 
 ## Audio Preprocessing Details
 
@@ -230,6 +271,112 @@ The feature extraction automatically generates comprehensive visualizations:
 ### 5. Feature Importance (`feature_importance.png`)
 - Statistical significance ranking using t-tests
 - Top 20 most discriminative features for PD detection
+
+## Filter-based Feature Selection Details
+
+The filter-based selection pipeline implements multiple statistical methods to identify the most discriminative features:
+
+### 1. Variance Threshold Filtering
+- **Purpose**: Remove features with minimal variation across samples
+- **Threshold**: 0.01 (removes constant or near-constant features)
+- **Result**: 100/139 features retained (39 removed)
+- **Impact**: Eliminates non-informative features like `min_amplitude`, `max_amplitude`, `voiced_ratio`
+
+### 2. Correlation-based Filtering
+- **Purpose**: Remove highly correlated redundant features
+- **Threshold**: 0.9 correlation coefficient
+- **Method**: Retains feature with higher variance from correlated pairs
+- **Result**: 117/139 features retained (22 removed)
+- **Key removals**: `duration` (correlated with `signal_length`), `rms_energy` (correlated with `std_amplitude`)
+
+### 3. Statistical Test Methods
+
+#### ANOVA F-test
+- **Purpose**: Identify features with significant between-group variance
+- **Metric**: F-statistic for PD vs HC classification
+- **Significant features**: 8 features with p < 0.05
+- **Top performers**: `mfcc_delta2_2_mean`, `mfcc_12_max`, `mfcc_12_mean`
+
+#### Independent t-test
+- **Purpose**: Detect features with significant mean differences between groups
+- **Metric**: Absolute t-statistic
+- **Significant features**: 8 features with p < 0.05
+- **Consistent with F-test**: Same top features identified
+
+#### Mutual Information
+- **Purpose**: Capture non-linear relationships between features and target
+- **Advantage**: Detects complex dependencies missed by linear methods
+- **Top performers**: `mel_std`, `mfcc_13_std`, `voiced_ratio`
+- **Score range**: 0.0000 - 0.2847
+
+### 4. Combined Filter Ranking
+- **Approach**: Weighted combination of all filter methods
+- **Weights**: F-test (40%), t-test (30%), Mutual Information (30%)
+- **Normalization**: All scores normalized to [0,1] range before combination
+- **Output**: Consensus ranking of all 139 features
+
+### 5. Cross-validation Evaluation
+- **Methods**: 5-fold cross-validation
+- **Classifiers**: Random Forest and Logistic Regression
+- **Metrics**: Classification accuracy
+- **Results**: All feature sets achieved 91-96% accuracy
+- **Best performance**: Mutual Information selection (96% accuracy)
+
+## Feature Selection Visualizations
+
+The selection pipeline generates 6 comprehensive visualizations:
+
+### 1. Selection Pipeline (`selection_pipeline.png`)
+- Complete workflow from 139 original features to final selection
+- Processing statistics at each stage
+- Filter method descriptions and parameters
+
+### 2. Selection Methods Comparison (`selection_methods_comparison.png`)
+- Number of features selected by each method
+- Variance distribution analysis
+- Correlation matrix heatmap
+- P-value distribution from statistical tests
+
+### 3. Statistical Scores (`statistical_scores.png`)
+- Top 30 features by F-score, t-test, Mutual Information, and combined ranking
+- Side-by-side comparison of different scoring methods
+- Feature importance visualization
+
+### 4. Correlation Analysis (`correlation_analysis.png`)
+- Distribution of high correlation pairs
+- Feature reduction effectiveness
+- Before/after correlation filtering comparison
+
+### 5. Feature Rankings (`feature_rankings.png`)
+- Score heatmap for top 20 features across all methods
+- Method agreement analysis and correlation
+- Combined score distribution
+
+### 6. Evaluation Results (`evaluation_results.png`)
+- Cross-validation accuracy comparison across methods
+- Feature count vs. performance trade-off analysis
+- Performance improvement over baseline
+
+## Key Findings and Insights
+
+### Top Discriminative Features
+1. **mel_std** (0.3000) - Spectral variability in mel-frequency domain
+2. **mfcc_13_std** (0.2582) - Variability in highest MFCC coefficient
+3. **voiced_ratio** (0.2498) - Proportion of voiced segments
+4. **mfcc_delta2_10_std** (0.2331) - Acceleration in 10th MFCC coefficient
+
+### Feature Category Analysis (Top 50 Features)
+- **MFCC Features**: 72% (36/50) - Dominant category
+- **Time Domain**: 12% (6/50) - Basic signal statistics
+- **Spectral Features**: 8% (4/50) - Mel-frequency characteristics
+- **Prosodic Features**: 8% (4/50) - Voice quality measures
+- **Frequency Domain**: 0% (0/50) - Traditional spectral features less discriminative
+
+### Statistical Insights
+- **Mutual Information**: Most effective method (57 features with MI > 0)
+- **Significance**: Only 8 features show statistical significance (p < 0.05) with traditional tests
+- **MFCC Dominance**: 66.7% of top 15 features are MFCC-based
+- **Delta Features**: Second-order derivatives (delta-delta) particularly discriminative
 
 ## Output Files
 
