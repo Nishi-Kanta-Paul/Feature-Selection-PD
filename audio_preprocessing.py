@@ -43,7 +43,9 @@ def simple_audio_preprocessing():
         for i, filename in enumerate(audio_files):
             try:
                 input_path = os.path.join(input_dir, filename)
-                output_path = os.path.join(output_dir, f"clean_{filename}")
+                # Create shorter output filename to avoid Windows path length issues
+                short_filename = f"processed_{i+1:04d}.wav"
+                output_path = os.path.join(output_dir, short_filename)
                 
                 # Load audio
                 audio, sr = librosa.load(input_path, sr=target_sr)
