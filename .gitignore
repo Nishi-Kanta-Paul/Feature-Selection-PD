@@ -1,0 +1,111 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+build/
+develop-eggs/
+dist/
+downloads/
+eggs/
+.eggs/
+lib/
+lib64/
+parts/
+sdist/
+var/
+wheels/
+*.egg-info/
+.installed.cfg
+*.egg
+MANIFEST
+
+# PyInstaller
+*.manifest
+*.spec
+
+# Installer logs
+pip-log.txt
+pip-delete-this-directory.txt
+
+# Unit test / coverage reports
+htmlcov/
+.tox/
+.coverage
+.coverage.*
+.cache
+nosetests.xml
+coverage.xml
+*.cover
+.hypothesis/
+.pytest_cache/
+
+# Jupyter Notebook
+.ipynb_checkpoints
+
+# pyenv
+.python-version
+
+# Environment variables
+.env
+.venv
+env/
+venv/
+ENV/
+env.bak/
+venv.bak/
+
+# VS Code
+.vscode/
+*.code-workspace
+
+# macOS
+.DS_Store
+
+# Windows
+Thumbs.db
+ehthumbs.db
+Desktop.ini
+
+# Audio data files (large files)
+*.wav
+*.mp3
+*.m4a
+*.flac
+*.aac
+
+# Processed data folders
+data/
+Processed_data_sample_raw_voice/
+raw_wav/
+rnnoise_out/
+
+# CSV files with processed results
+missing_files.csv
+processing_errors.csv
+output_*.csv
+
+# Temporary files
+*.tmp
+*.temp
+temp_*
+
+# Log files
+*.log
+
+# Model files (can be large)
+*.pkl
+*.joblib
+*.h5
+*.hdf5
+*.model
+
+# Notebooks checkpoints
+.ipynb_checkpoints/
+
+# IDE files
+.idea/
+*.swp
+*.swo
+*~
