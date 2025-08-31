@@ -99,12 +99,282 @@ If you want, I can implement any of the suggested improvements or create a dedic
 
 ### Audio Preprocessing (`audio_preprocessing.py`)
 
-- Resamples audio to 16kHz for standardization
-- Applies high-pass filtering to remove low-frequency noise
-- Removes silence using energy-based detection
-- Normalizes audio amplitude
-- Ensures minimum audio length for consistency
-- Generates clean, processed audio files
+This script applies signal processing techniques to clean and standardize audio files for consistent feature extraction. The preprocessing pipeline transforms raw audio files into high-quality, normalized voice segments optimized for acoustic analysis.
+
+#### Core Objectives and Benefits
+
+The preprocessing pipeline addresses several critical challenges in audio analysis:
+
+1. **Sample Rate Standardization**: Converts all audio to 16 kHz for consistent temporal resolution
+2. **Noise Reduction**: Removes low-frequency artifacts and background interference
+3. **Voice Activity Detection**: Isolates speech segments from silence and non-speech audio
+4. **Amplitude Normalization**: Ensures consistent signal levels across recordings
+5. **Length Standardization**: Guarantees minimum duration for reliable feature extraction
+
+#### Detailed Processing Pipeline
+
+**Step 1: Audio Loading and Resampling**
+
+- Loads audio using `librosa.load()` with target sample rate of 16 kHz
+- 16 kHz provides optimal balance between quality and computational efficiency
+- Sufficient bandwidth for speech analysis (speech content typically < 8 kHz)
+- Reduces file size and processing time compared to higher sample rates
+
+**Step 2: High-Pass Filtering**
+
+- Applies 3rd-order Butterworth high-pass filter with 80 Hz cutoff
+- Removes low-frequency noise, room rumble, and handling artifacts
+- Preserves fundamental frequencies of human speech (typically 85-255 Hz for males, 165-265 Hz for females)
+- Uses `scipy.signal.filtfilt()` for zero-phase filtering to avoid signal distortion
+
+**Step 3: Silence Removal (Voice Activity Detection)**
+
+- Frame-based analysis using 25ms windows with 10ms hop size
+- Calculates RMS energy for each frame: `energy = mean(frame²)`
+- Normalizes energy relative to maximum frame energy
+- Threshold-based detection (default: 2% of maximum energy)
+- Extracts and concatenates only voice-active segments
+- Preserves temporal structure while removing silent regions
+
+**Step 4: Amplitude Normalization**
+
+- Scales audio to 90% of maximum amplitude range
+- Formula: `normalized = (audio / max(|audio|)) × 0.9`
+- Prevents clipping while maximizing dynamic range
+- Ensures consistent signal levels across different recording conditions
+
+**Step 5: Length Standardization**
+
+- Ensures minimum duration of 0.5 seconds (8,000 samples at 16 kHz)
+- Zero-pads shorter segments to meet minimum length requirement
+- Prevents feature extraction errors on very short audio clips
+- Maintains temporal consistency for statistical feature calculation
+
+#### Technical Implementation Details
+
+**Frame Analysis Parameters**
+
+- **Frame Size**: 25ms (400 samples at 16 kHz)
+- **Hop Size**: 10ms (160 samples) - 60% overlap for smooth analysis
+- **Energy Calculation**: RMS energy per frame for robust voice detection
+- **Threshold**: Adaptive based on signal energy distribution
+
+**Filter Specifications**
+
+- **Type**: Butterworth high-pass filter
+- **Order**: 3rd order (18 dB/octave rolloff)
+- **Cutoff**: 80 Hz (removes sub-vocal frequencies)
+- **Implementation**: Zero-phase filtering using `filtfilt()`
+
+**File Naming Convention**
+
+- Input: Original audio IDs (e.g., `5398675.wav`)
+- Output: Sequential naming `processed_0001.wav`, `processed_0002.wav`
+- Avoids Windows long path issues while maintaining traceability
+
+#### Prerequisites and Dependencies
+
+```python
+# Required libraries
+librosa>=0.9.0      # Audio loading and processing
+soundfile>=0.10.0   # Audio file I/O
+numpy>=1.21.0       # Numerical operations
+scipy>=1.7.0        # Signal processing filters
+```
+
+Install dependencies (PowerShell):
+
+```powershell
+python -m pip install librosa soundfile numpy scipy
+```
+
+#### Usage Instructions
+
+**Basic Execution (PowerShell)**
+
+```powershell
+python audio_preprocessing.py
+```
+
+**Expected Console Output**
+
+```
+Starting simple audio preprocessing...
+Target sample rate: 16000 Hz
+
+Processing 2 PD files...
+  Processed: 5398675.wav (1/2)
+  Processed: 5398535.wav (2/2)
+
+Processing 19 HC files...
+  Processed: 5408089.wav (1/19)
+  Processed: 5399630.wav (2/19)
+  ...
+
+==================================================
+PREPROCESSING COMPLETE!
+==================================================
+PD files: 2
+HC files: 19
+Total: 21
+Output directory: C:\...\preprocessed_data
+```
+
+#### Input/Output Structure
+
+**Input Requirements**
+
+- Source files in `data/PD/` and `data/HC/` (from organize_audio_files.py)
+- WAV format files with any sample rate
+- Minimum audio length: 0.1 seconds (will be padded if shorter)
+
+**Output Structure**
+
+```
+preprocessed_data/
+├── PD/
+│   ├── processed_0001.wav    # 16 kHz, filtered, normalized
+│   ├── processed_0002.wav
+│   └── ...
+└── HC/
+    ├── processed_0001.wav
+    ├── processed_0002.wav
+    └── ...
+```
+
+**Quality Verification (PowerShell)**
+
+```powershell
+# Check file counts
+Get-ChildItem -Path .\preprocessed_data\PD -Filter "*.wav" | Measure-Object | Select-Object Count
+Get-ChildItem -Path .\preprocessed_data\HC -Filter "*.wav" | Measure-Object | Select-Object Count
+
+# Verify sample rates using Python
+python -c "import librosa; import os; files = os.listdir('preprocessed_data/PD'); print([librosa.get_samplerate(f'preprocessed_data/PD/{f}') for f in files[:3]])"
+```
+
+#### Signal Processing Theory and Rationale
+
+**Why 16 kHz Sample Rate?**
+
+- Nyquist theorem: 16 kHz captures frequencies up to 8 kHz
+- Human speech content primarily below 4 kHz (formants typically 300-3500 Hz)
+- Balances quality with computational efficiency
+- Standard rate for speech processing applications
+
+**Why 80 Hz High-Pass Filter?**
+
+- Human vocal tract fundamental frequencies: 85-255 Hz (males), 165-265 Hz (females)
+- Removes environmental noise, AC hum (50/60 Hz), and handling artifacts
+- Preserves all speech-relevant frequency content
+- 3rd-order filter provides steep rolloff without introducing artifacts
+
+**Why Energy-Based Voice Activity Detection?**
+
+- Simple, robust, and computationally efficient
+- Effective for controlled recording environments
+- Adapts to signal-specific energy distribution
+- Preserves speech segments while removing silence and background noise
+
+#### Common Issues and Troubleshooting
+
+**Issue: "librosa not found" or import errors**
+
+```powershell
+# Install audio processing libraries
+python -m pip install librosa soundfile
+# On Windows, you may also need: pip install PySoundFile
+```
+
+**Issue: Very short output files**
+
+- Check silence threshold (default: 0.02)
+- Lower threshold for quiet recordings: modify `silence_threshold` parameter
+- Verify input audio contains actual speech content
+
+**Issue: Distorted or clipped audio**
+
+- Check normalization factor (default: 0.9)
+- Verify input audio quality and dynamic range
+- Examine filter cutoff frequency for your specific audio characteristics
+
+**Issue: Processing errors on specific files**
+
+- Check file format compatibility (WAV, sample rate, bit depth)
+- Verify file integrity using audio player
+- Examine console error messages for specific failure modes
+
+#### Performance Optimization
+
+**For Large Datasets**
+
+- Process files in batches to manage memory usage
+- Use multiprocessing for parallel file processing
+- Monitor disk I/O for bottlenecks
+
+**Memory Management**
+
+- Files processed individually to minimize memory footprint
+- Temporary arrays cleared after each file
+- Suitable for processing hundreds of files sequentially
+
+#### Signal Quality Assessment
+
+The preprocessing pipeline produces high-quality audio suitable for:
+
+- Acoustic feature extraction (MFCC, spectral features)
+- Voice quality analysis (jitter, shimmer, harmonics)
+- Machine learning model training
+- Clinical voice assessment applications
+
+#### Integration with Pipeline
+
+This preprocessing step is essential before feature extraction:
+
+1. **organize_audio_files.py** → Organizes raw files by cohort
+2. **audio_preprocessing.py** → Cleans and standardizes audio ✓
+3. **feature_extraction.py** → Extracts acoustic features
+4. **filter_feature_selection.py** → Selects discriminative features
+
+#### Preprocessing Visualizations
+
+To better understand the preprocessing pipeline, comprehensive visualizations are available in the `preprocessing_visualizations/` directory. Generate these visualizations by running:
+
+```powershell
+python create_preprocessing_visualizations.py
+```
+
+**Generated Visualizations:**
+
+1. **Pipeline Diagram** (`preprocessing_pipeline_diagram.png`)
+
+   - Complete flowchart of the 5-step preprocessing pipeline
+   - Technical specifications and parameters for each step
+   - Input/output formats and file structure
+
+2. **Step-by-Step Audio Processing Demo** (`audio_processing_steps_demo.png`)
+
+   - Visual demonstration of each preprocessing step on actual audio
+   - Shows signal transformation from raw to processed audio
+   - Illustrates noise removal, resampling, and normalization effects
+
+3. **Filter Frequency Response** (`filter_frequency_response.png`)
+
+   - Magnitude and phase response of the 80 Hz high-pass filter
+   - Shows preserved vs. removed frequency ranges
+   - Demonstrates filter effectiveness for speech preservation
+
+4. **Voice Activity Detection Demo** (`voice_activity_detection_demo.png`)
+   - Frame-by-frame energy analysis demonstration
+   - Threshold-based voice activity detection algorithm
+   - Statistics on voice vs. silence frame ratios
+
+These visualizations provide insight into:
+
+- How each preprocessing step affects the audio signal
+- Why specific parameters (80 Hz cutoff, 16 kHz sample rate) were chosen
+- The effectiveness of voice activity detection for silence removal
+- Technical validation of the preprocessing approach
 
 ### Feature Extraction (`feature_extraction.py`)
 
@@ -203,6 +473,12 @@ preprocessed_data/
     ├── processed_0001.wav
     ├── processed_0002.wav
     └── ...
+
+preprocessing_visualizations/    # Audio preprocessing analysis plots
+├── preprocessing_pipeline_diagram.png      # Complete preprocessing workflow
+├── audio_processing_steps_demo.png        # Step-by-step signal transformation
+├── filter_frequency_response.png          # High-pass filter analysis
+└── voice_activity_detection_demo.png      # VAD algorithm demonstration
 ```
 
 ### Feature Extraction Output (After Step 3)
