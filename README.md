@@ -346,28 +346,250 @@ python create_preprocessing_visualizations.py
 
 **Generated Visualizations:**
 
-1. **Pipeline Diagram** (`preprocessing_pipeline_diagram.png`)
+#### 1. Pipeline Diagram (`preprocessing_pipeline_diagram.png`)
 
-   - Complete flowchart of the 5-step preprocessing pipeline
-   - Technical specifications and parameters for each step
-   - Input/output formats and file structure
+This comprehensive flowchart visualization provides a complete overview of the audio preprocessing workflow:
 
-2. **Step-by-Step Audio Processing Demo** (`audio_processing_steps_demo.png`)
+**Visual Components:**
 
-   - Visual demonstration of each preprocessing step on actual audio
-   - Shows signal transformation from raw to processed audio
-   - Illustrates noise removal, resampling, and normalization effects
+- **Input Box (Light Blue)**: Shows the starting point with raw WAV files from `data/PD` and `data/HC` directories, highlighting the various sample rates and quality levels that need standardization
+- **Processing Steps (Medium Blue)**: Five sequential processing boxes, each containing:
+  - Step title and number
+  - Key technical parameters (sample rates, filter specifications, thresholds)
+  - Brief description of the operation's purpose
+- **Output Box (Dark Blue)**: Final preprocessed audio files ready for feature extraction
+- **Flow Arrows**: Blue directional arrows showing the sequential nature of processing
+- **Technical Specifications Panel**: Right-side panel listing all critical parameters:
+  - Sample rate: 16,000 Hz
+  - Frame analysis: 25ms windows with 10ms hop
+  - Filter: Butterworth 3rd order, 80 Hz cutoff
+  - Energy threshold: Adaptive (2% of maximum)
+  - Normalization: 90% of amplitude range
+  - Minimum duration: 0.5 seconds
 
-3. **Filter Frequency Response** (`filter_frequency_response.png`)
+**How to Interpret:**
 
-   - Magnitude and phase response of the 80 Hz high-pass filter
-   - Shows preserved vs. removed frequency ranges
-   - Demonstrates filter effectiveness for speech preservation
+- Follow the vertical flow from top to bottom to understand the processing sequence
+- Each processing step builds upon the previous one
+- The technical specifications show the exact parameters used in the implementation
+- Color coding helps distinguish between input, processing, and output stages
 
-4. **Voice Activity Detection Demo** (`voice_activity_detection_demo.png`)
-   - Frame-by-frame energy analysis demonstration
-   - Threshold-based voice activity detection algorithm
-   - Statistics on voice vs. silence frame ratios
+**Key Insights:**
+
+- Demonstrates the systematic approach to audio standardization
+- Shows how each step addresses specific audio quality issues
+- Provides technical validation for parameter choices
+- Illustrates the transformation from variable-quality input to standardized output
+
+#### 2. Step-by-Step Audio Processing Demo (`audio_processing_steps_demo.png`)
+
+This detailed signal analysis visualization shows the actual transformation of an audio signal through each preprocessing step:
+
+**Visual Layout (5 Subplot Panels):**
+
+**Panel 1 - Original Audio (Red/Orange)**
+
+- **What it shows**: Raw input audio signal with original sample rate
+- **X-axis**: Time in seconds (typically 0-3 seconds)
+- **Y-axis**: Amplitude (-1 to +1 normalized range)
+- **Key observations**: May show irregular amplitude, potential noise artifacts, variable quality
+- **Color coding**: Red/orange indicates unprocessed, potentially noisy signal
+
+**Panel 2 - Resampled Audio (Orange)**
+
+- **What it shows**: Audio after resampling to 16 kHz
+- **Changes visible**:
+  - Time axis may compress or expand depending on original sample rate
+  - Signal smoothness may change due to resampling algorithm
+  - Overall signal shape preserved but temporal resolution standardized
+- **Technical note**: Uses librosa's high-quality resampling algorithm
+
+**Panel 3 - High-Pass Filtered Audio (Yellow)**
+
+- **What it shows**: Audio after 80 Hz high-pass filtering
+- **Key changes**:
+  - Low-frequency rumble and baseline drift removed
+  - Signal may appear "cleaner" with reduced low-frequency content
+  - DC offset eliminated
+  - Preserves speech formants (typically 300-3500 Hz)
+- **Filter visualization**: Shows effectiveness of Butterworth filter in noise removal
+
+**Panel 4 - Voice Activity Detection (Green)**
+
+- **What it shows**: Audio after silence removal using energy-based detection
+- **Major changes**:
+  - Silent segments completely removed
+  - Signal appears as concatenated voice-active regions
+  - Shorter total duration than original
+  - Improved signal-to-noise ratio
+- **Algorithm effect**: Demonstrates frame-based energy analysis results
+
+**Panel 5 - Final Normalized Audio (Blue)**
+
+- **What it shows**: Complete preprocessed audio ready for feature extraction
+- **Final characteristics**:
+  - Consistent amplitude scaling (90% of maximum range)
+  - Minimum duration ensured (0.5 seconds)
+  - Zero-padding applied if necessary
+  - Optimal dynamic range utilization
+- **Quality indicators**: Clean, standardized signal suitable for acoustic analysis
+
+**How to Interpret the Progression:**
+
+- **Amplitude changes**: Notice how each step affects signal amplitude and noise floor
+- **Duration changes**: Observe how VAD reduces total signal length by removing silence
+- **Signal quality**: See progressive improvement in signal clarity and consistency
+- **Frequency content**: Note how high-pass filtering affects the signal's frequency composition
+
+**Technical Validation:**
+
+- Confirms proper functioning of each preprocessing step
+- Shows real-world effectiveness of chosen parameters
+- Demonstrates signal preservation while removing unwanted components
+- Validates the preprocessing approach for speech analysis applications
+
+#### 3. Filter Frequency Response (`filter_frequency_response.png`)
+
+This technical analysis visualization demonstrates the characteristics of the 80 Hz high-pass Butterworth filter:
+
+**Upper Panel - Magnitude Response:**
+
+- **X-axis**: Frequency (Hz) from 10 Hz to 1000 Hz (logarithmic scale)
+- **Y-axis**: Magnitude response in decibels (dB), typically -60 to +5 dB
+- **Blue curve**: Filter's magnitude response showing frequency-dependent attenuation
+- **Red dashed line**: 80 Hz cutoff frequency marker
+- **Green dashed line**: -3 dB reference line (half-power point)
+- **Colored regions**:
+  - **Red shaded area (10-80 Hz)**: Removed frequencies (noise, rumble, artifacts)
+  - **Green shaded area (85-255 Hz)**: Preserved male speech fundamental frequencies
+  - **Blue shaded area (165-265 Hz)**: Preserved female speech fundamental frequencies
+
+**Lower Panel - Phase Response:**
+
+- **X-axis**: Frequency (Hz) matching the magnitude plot
+- **Y-axis**: Phase shift in degrees
+- **Blue curve**: Shows phase characteristics of the filter
+- **Red dashed line**: 80 Hz cutoff frequency marker
+- **Phase behavior**: Demonstrates zero-phase filtering (using filtfilt) prevents signal distortion
+
+**Critical Frequency Ranges:**
+
+- **Below 80 Hz**: Heavy attenuation (-40 dB or more) removes:
+  - AC power line interference (50/60 Hz)
+  - Low-frequency environmental noise
+  - Microphone handling artifacts
+  - Room rumble and HVAC noise
+- **80-100 Hz**: Transition band with gradual rolloff
+- **Above 100 Hz**: Pass band preserving:
+  - All human speech fundamental frequencies
+  - Formant frequencies (300-3500 Hz)
+  - Harmonic content essential for voice analysis
+
+**Filter Specifications Validation:**
+
+- **Order**: 3rd order provides 18 dB/octave rolloff
+- **Type**: Butterworth design ensures maximally flat pass band
+- **Implementation**: Zero-phase filtering using filtfilt() prevents temporal distortion
+- **Cutoff selection**: 80 Hz chosen to preserve lowest male vocal fundamental frequencies (≈85 Hz)
+
+**How to Interpret:**
+
+- **Steep rolloff**: Demonstrates effective noise removal below cutoff
+- **Flat pass band**: Ensures no distortion of speech frequencies
+- **Phase linearity**: Confirms temporal preservation of speech characteristics
+- **Frequency preservation**: Validates that all speech-relevant content is maintained
+
+**Clinical Relevance:**
+
+- Preserves vocal biomarkers important for Parkinson's assessment
+- Removes non-physiological noise that could confound analysis
+- Maintains harmonic structure essential for voice quality measurement
+- Ensures consistent filtering across all voice samples
+
+#### 4. Voice Activity Detection Demo (`voice_activity_detection_demo.png`)
+
+This comprehensive demonstration shows the frame-by-frame energy analysis algorithm used for silence removal:
+
+**Upper Panel - Original Signal with Speech Segments:**
+
+- **Blue waveform**: Synthetic or real audio signal with alternating speech and silence
+- **Green shaded regions**: Ground-truth speech segments for reference
+- **X-axis**: Time in seconds (typically 0-3 seconds)
+- **Y-axis**: Amplitude (-1 to +1 normalized range)
+- **Signal characteristics**: Shows clear distinction between voice-active and silent periods
+
+**Middle Panel - Frame Energy Analysis:**
+
+- **Orange line**: Normalized frame-by-frame energy calculation
+- **Red dashed line**: Energy threshold (default: 0.02 or 2% of maximum energy)
+- **Green filled area**: Frames classified as voice-active (above threshold)
+- **Algorithm parameters**:
+  - Frame size: 25ms (400 samples at 16 kHz)
+  - Hop size: 10ms (160 samples) providing 60% overlap
+  - Energy calculation: RMS energy per frame
+- **Adaptive threshold**: Based on signal's own energy distribution
+
+**Lower Panel - Voice Activity Detection Result:**
+
+- **Green step function**: Binary VAD output (1 = voice, 0 = silence)
+- **X-axis**: Time in seconds matching upper panels
+- **Y-axis**: Voice activity (0 or 1)
+- **Statistics box**: Contains key performance metrics:
+  - Total frames analyzed
+  - Number of voice-active frames detected
+  - Voice activity ratio (percentage of signal containing speech)
+
+**Algorithm Operation Details:**
+
+**Frame-by-Frame Processing:**
+
+1. **Windowing**: Signal divided into overlapping 25ms windows
+2. **Energy Calculation**: RMS energy computed for each frame: `energy = sqrt(mean(frame²))`
+3. **Normalization**: Energies scaled relative to maximum frame energy
+4. **Threshold Application**: Frames with normalized energy > 0.02 classified as voice
+5. **Segment Extraction**: Voice-active frames concatenated to form clean speech signal
+
+**Threshold Selection Rationale:**
+
+- **2% threshold**: Balances sensitivity vs. noise rejection
+- **Adaptive nature**: Threshold relative to signal's own energy distribution
+- **Robustness**: Works across different recording conditions and signal levels
+- **Conservative approach**: Prefers including borderline frames over excluding speech
+
+**Performance Indicators:**
+
+- **High voice ratio**: Indicates presence of substantial speech content
+- **Low voice ratio**: May suggest very quiet recording or excessive silence
+- **Typical values**: 0.3-0.7 for normal speech recordings
+- **Quality assessment**: Voice ratio helps validate recording quality
+
+**Visual Validation:**
+
+- **Alignment check**: Green regions in energy panel should align with speech in waveform
+- **Threshold appropriateness**: Red threshold line should separate speech from noise/silence
+- **Temporal accuracy**: VAD output should start/stop with actual speech boundaries
+- **Noise immunity**: Silent periods should remain undetected despite low-level noise
+
+**Clinical Application Benefits:**
+
+- **Consistent analysis**: Removes variable silence periods between samples
+- **Feature reliability**: Ensures acoustic features computed only on voice-active segments
+- **Comparative studies**: Enables fair comparison across different recording lengths
+- **Noise robustness**: Reduces impact of environmental noise on analysis
+
+**Algorithm Limitations and Considerations:**
+
+- **Quiet speech**: Very soft speech may fall below threshold
+- **Background speech**: Overlapping speakers not handled
+- **Impulsive noise**: Brief loud sounds may be incorrectly classified as voice
+- **Threshold sensitivity**: May need adjustment for very quiet or noisy recordings
+
+**Technical Validation:**
+
+- Demonstrates robust performance across varying signal conditions
+- Shows clear separation between speech and non-speech segments
+- Validates energy-based approach for controlled recording environments
+- Confirms algorithm suitability for clinical voice analysis applications
 
 These visualizations provide insight into:
 
@@ -375,6 +597,49 @@ These visualizations provide insight into:
 - Why specific parameters (80 Hz cutoff, 16 kHz sample rate) were chosen
 - The effectiveness of voice activity detection for silence removal
 - Technical validation of the preprocessing approach
+
+#### Practical Interpretation Guide
+
+**For Researchers and Clinicians:**
+
+1. **Quality Assessment**: Use the step-by-step demo to verify that preprocessing improves signal quality for your specific dataset
+2. **Parameter Validation**: Check the filter response plot to ensure frequency ranges important for your analysis are preserved
+3. **Threshold Tuning**: Monitor VAD statistics to adjust silence threshold for different recording conditions
+4. **Comparative Analysis**: Use visualizations to compare preprocessing effectiveness across different cohorts or recording setups
+
+**For Technical Implementation:**
+
+1. **Parameter Optimization**: Visualizations help identify if default parameters need adjustment for specific datasets
+2. **Algorithm Validation**: Plots provide visual confirmation that each processing step functions correctly
+3. **Troubleshooting**: Unexpected results in downstream analysis can often be traced back using these preprocessing visualizations
+4. **Documentation**: Visualizations serve as technical documentation for methodology papers and clinical reports
+
+**Quality Control Checklist:**
+
+- [ ] Pipeline diagram shows all expected processing steps
+- [ ] Step-by-step demo shows progressive signal improvement
+- [ ] Filter response preserves speech frequencies (85-4000 Hz)
+- [ ] VAD correctly identifies speech vs. silence segments
+- [ ] Voice activity ratio is within expected range (0.3-0.7)
+- [ ] Final processed signal is clean and properly normalized
+
+#### Technical References and Further Reading
+
+**Signal Processing Theory:**
+
+- Butterworth filter design: Oppenheim & Schafer, "Discrete-Time Signal Processing"
+- Voice activity detection: Ramirez et al., "Voice Activity Detection: Fundamentals and Speech Recognition System Robustness"
+- Audio resampling: Smith, "Digital Audio Resampling Home Page"
+
+**Clinical Voice Analysis:**
+
+- Parkinson's voice biomarkers: Tsanas et al., "Accurate telemonitoring of Parkinson's disease progression using nonlinear speech signal processing"
+- Speech preprocessing for medical applications: Hegde et al., "A survey on machine learning approaches for automatic detection of voice disorders"
+
+**Implementation References:**
+
+- librosa documentation: McFee et al., "librosa: Audio and Music Signal Analysis in Python"
+- scipy.signal filtering: Virtanen et al., "SciPy 1.0: Fundamental Algorithms for Scientific Computing"
 
 ### Feature Extraction (`feature_extraction.py`)
 
