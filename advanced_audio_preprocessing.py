@@ -14,7 +14,7 @@ class AdvancedAudioPreprocessor:
     Advanced Audio Preprocessor for Parkinson's Disease Analysis
     
     Implements:
-    1. Frequency Filtering with percentile-based cutoffs (high-pass + band-pass)
+    1. Band-pass Frequency Filtering with percentile-based cutoffs from frequency profiles
     2. Silence Analysis (measure silence ratio in PD vs HC)
     3. No amplitude normalization or length standardization
     4. Audio length distribution analysis
@@ -641,7 +641,7 @@ class AdvancedAudioPreprocessor:
         print(f"   HC below 80Hz: {np.mean(hc_data['below_80hz_ratios']):.3f} ± {np.std(hc_data['below_80hz_ratios']):.3f}")
         
         avg_below_80hz = np.mean(pd_data['below_80hz_ratios'] + hc_data['below_80hz_ratios'])
-        print(f"   Filter impact: High-pass at 80Hz removes {avg_below_80hz*100:.1f}% of signal energy")
+        print(f"   Filter impact: Band-pass filtering preserves core frequency range")
         
         print(f"\n6. PREPROCESSING RECOMMENDATIONS:")
         avg_silence = np.mean(pd_data['silence_ratios'] + hc_data['silence_ratios'])
@@ -652,9 +652,9 @@ class AdvancedAudioPreprocessor:
             print("   - Minimal silence removal recommended (low silence ratio)")
             
         if avg_below_80hz > 0.1:
-            print("   - High-pass filtering strongly recommended (significant low-freq noise)")
+            print("   - Band-pass filtering recommended (removes low-freq noise while preserving voice)")
         else:
-            print("   - High-pass filtering optional (minimal low-freq content)")
+            print("   - Band-pass filtering based on frequency profiles (optimal frequency range)")
             
         print("   - NO amplitude normalization (preserves original signal characteristics)")
         print("   - NO length standardization (preserves natural duration variability)")
@@ -664,6 +664,115 @@ class AdvancedAudioPreprocessor:
             print("   - High duration variability detected - good for natural analysis")
         
         return self.analysis_results
+    
+    def preprocess_with_percentile_filtering(self, data_dir="data", output_dir="percentile_filtered_data", 
+                                           percentile_strategy="percentile_1_99"):
+        """
+        Preprocess audio files using percentile-based band-pass filtering
+        
+        Args:
+            data_dir: Input directory containing PD and HC folders
+            output_dir: Output directory for preprocessed files
+            percentile_strategy: Which percentile strategy to use:
+                - 'percentile_1_99': 1st-99th percentile (broadest range)
+                - 'percentile_2_5_97_5': 2.5th-97.5th percentile (conservative)
+                - 'frequency_range_95': 95% energy range
+        """
+        if self.filter_params is None:
+            print("Error: Must run dataset analysis first!")
+            return
+        
+        print(f"\n{'='*80}")
+        print("PERCENTILE-BASED BAND-PASS FILTERING")
+        print(f"{'='*80}")
+        
+        # Create output directories
+        for cohort in ["PD", "HC"]:
+            os.makedirs(os.path.join(output_dir, cohort), exist_ok=True)
+        
+        # Use specified percentile strategy
+        if percentile_strategy not in self.filter_params:
+            print(f"Error: Strategy '{percentile_strategy}' not found. Available: {list(self.filter_params.keys())}")
+            return
+            
+        filter_params = self.filter_params[percentile_strategy]
+        low_cutoff = filter_params['low_cutoff']
+        high_cutoff = filter_params['high_cutoff']
+        
+        print(f"Filter strategy: {percentile_strategy}")
+        print(f"Filter settings: {filter_params['description']}")
+        print("Processing settings:")
+        print(f"- Frequency filtering: Band-pass using {percentile_strategy.replace('_', ' ').title()}")
+        print("- Silence handling: Based on analysis results")
+        print("- NO amplitude normalization")
+        print("- NO length standardization")
+        print()
+        
+        processed_count = {"PD": 0, "HC": 0}
+        processing_stats = {"PD": [], "HC": []}
+        
+        for cohort in ["PD", "HC"]:
+            input_dir = os.path.join(data_dir, cohort)
+            output_cohort_dir = os.path.join(output_dir, cohort)
+            
+            if not os.path.exists(input_dir):
+                continue
+                
+            audio_files = [f for f in os.listdir(input_dir) if f.endswith('.wav')]
+            print(f"Processing {len(audio_files)} {cohort} files...")
+            
+            # Determine silence removal threshold based on analysis
+            cohort_silence_ratios = self.analysis_results[cohort]['silence_ratios']
+            silence_threshold = np.percentile(cohort_silence_ratios, 25)  # Remove only excessive silence
+            
+            for i, filename in enumerate(audio_files):
+                try:
+                    input_path = os.path.join(input_dir, filename)
+                    output_filename = f"{percentile_strategy}_{i+1:04d}.wav"
+                    output_path = os.path.join(output_cohort_dir, output_filename)
+                    
+                    # Load audio
+                    audio, sr = librosa.load(input_path, sr=self.target_sr)
+                    original_length = len(audio)
+                    
+                    # Apply percentile-based band-pass filtering
+                    processed_audio = self._apply_percentile_band_pass_filtering(
+                        audio, sr, low_cutoff, high_cutoff, percentile_strategy
+                    )
+                    
+                    # Selective silence removal (only if excessive)
+                    current_silence_ratio = self._calculate_silence_ratio(processed_audio, sr)
+                    if current_silence_ratio > silence_threshold * 1.5:  # Only if significantly above threshold
+                        processed_audio = self._remove_excessive_silence(processed_audio, sr, silence_threshold)
+                    
+                    final_length = len(processed_audio)
+                    
+                    # NO amplitude normalization - preserve original dynamics
+                    # NO length standardization - preserve natural duration
+                    
+                    # Save processed audio
+                    sf.write(output_path, processed_audio, sr)
+                    processed_count[cohort] += 1
+                    
+                    # Track processing statistics
+                    processing_stats[cohort].append({
+                        'original_length': original_length / sr,
+                        'final_length': final_length / sr,
+                        'length_change_ratio': final_length / original_length,
+                        'original_silence_ratio': current_silence_ratio
+                    })
+                    
+                    if (i + 1) % 5 == 0:
+                        print(f"  Processed: {i+1}/{len(audio_files)} files")
+                        
+                except Exception as e:
+                    print(f"  Error with {filename}: {e}")
+        
+        # Print processing summary
+        self._print_percentile_processing_summary(processed_count, processing_stats, filter_params, 
+                                                 percentile_strategy, output_dir)
+        
+        return processed_count, processing_stats
     
     def preprocess_with_analysis_based_settings(self, data_dir="data", output_dir="analysis_based_preprocessed_data"):
         """
@@ -682,14 +791,14 @@ class AdvancedAudioPreprocessor:
         for cohort in ["PD", "HC"]:
             os.makedirs(os.path.join(output_dir, cohort), exist_ok=True)
         
-        # Use conservative filter (2.5th-97.5th percentiles)
-        filter_params = self.filter_params['percentile_2_5_97_5']
+        # Use 1st-99th percentile filter (broader frequency range)
+        filter_params = self.filter_params['percentile_1_99']
         low_cutoff = filter_params['low_cutoff']
         high_cutoff = filter_params['high_cutoff']
         
         print(f"Filter settings: {filter_params['description']}")
         print("Processing settings:")
-        print("- Frequency filtering: High-pass + Band-pass")
+        print("- Frequency filtering: Band-pass filtering using 1st-99th percentile range")
         print("- Silence handling: Based on analysis results")
         print("- NO amplitude normalization")
         print("- NO length standardization")
@@ -759,21 +868,45 @@ class AdvancedAudioPreprocessor:
         return processed_count, processing_stats
     
     def _apply_frequency_filtering(self, audio, sr, low_cutoff, high_cutoff):
-        """Apply high-pass followed by band-pass filtering"""
+        """Apply band-pass filtering based on frequency profile analysis"""
         try:
-            # Step 1: High-pass filter
-            b_hp, a_hp = butter(3, low_cutoff / (sr / 2), btype='high')
-            audio_filtered = filtfilt(b_hp, a_hp, audio)
+            # Ensure cutoff frequencies are within valid range
+            nyquist = sr / 2
+            low_cutoff = max(1, min(low_cutoff, nyquist - 1))
+            high_cutoff = max(low_cutoff + 1, min(high_cutoff, nyquist - 1))
             
-            # Step 2: Band-pass filter (if high cutoff is below Nyquist)
-            if high_cutoff < sr / 2:
-                b_bp, a_bp = butter(3, [low_cutoff, high_cutoff], btype='band', fs=sr)
-                audio_filtered = filtfilt(b_bp, a_bp, audio_filtered)
+            # Apply band-pass filter using calculated cutoffs from frequency profiles
+            # This preserves the frequency range that contains most of the signal energy
+            b_bp, a_bp = butter(3, [low_cutoff, high_cutoff], btype='band', fs=sr)
+            audio_filtered = filtfilt(b_bp, a_bp, audio)
             
             return audio_filtered
             
         except Exception as e:
-            print(f"Warning: Filtering failed ({e}). Using original audio.")
+            print(f"Warning: Band-pass filtering failed ({e}). Using original audio.")
+            return audio
+    
+    def _apply_percentile_band_pass_filtering(self, audio, sr, low_cutoff, high_cutoff, strategy):
+        """Apply percentile-based band-pass filtering with enhanced validation"""
+        try:
+            # Enhanced frequency validation
+            nyquist = sr / 2
+            
+            # Ensure frequencies are valid and reasonable for voice data
+            low_cutoff = max(20, min(low_cutoff, nyquist - 50))  # At least 20 Hz, leave room for high cutoff
+            high_cutoff = max(low_cutoff + 50, min(high_cutoff, nyquist - 1))  # At least 50 Hz bandwidth
+            
+            print(f"    Applying {strategy}: {low_cutoff:.1f}-{high_cutoff:.1f} Hz")
+            
+            # Apply band-pass filter using percentile-determined cutoffs
+            # This preserves the frequency range based on dataset percentile analysis
+            b_bp, a_bp = butter(3, [low_cutoff, high_cutoff], btype='band', fs=sr)
+            audio_filtered = filtfilt(b_bp, a_bp, audio)
+            
+            return audio_filtered
+            
+        except Exception as e:
+            print(f"Warning: Percentile band-pass filtering failed ({e}). Using original audio.")
             return audio
     
     def _remove_excessive_silence(self, audio, sr, threshold):
@@ -839,7 +972,44 @@ class AdvancedAudioPreprocessor:
                 print(f"    Average length retention: {avg_length_change:.3f}")
         
         print(f"\nKey preprocessing principles followed:")
-        print(f"  ✓ Frequency filtering based on dataset percentiles")
+        print(f"  ✓ Band-pass frequency filtering based on dataset frequency profiles")
+        print(f"  ✓ Minimal silence removal (preserve natural pauses)")
+        print(f"  ✓ NO amplitude normalization (preserve dynamics)")
+        print(f"  ✓ NO length standardization (preserve duration variability)")
+        
+        print(f"\nOutput directory: {os.path.abspath(output_dir)}")
+    
+    def _print_percentile_processing_summary(self, processed_count, processing_stats, filter_params, 
+                                           strategy, output_dir):
+        """Print detailed processing summary for percentile-based filtering"""
+        print(f"\n{'='*80}")
+        print("PERCENTILE-BASED FILTERING COMPLETE!")
+        print(f"{'='*80}")
+        
+        print(f"Strategy used: {strategy.replace('_', ' ').title()}")
+        print(f"Filter applied: {filter_params['description']}")
+        print(f"Files processed:")
+        print(f"  PD: {processed_count['PD']}")
+        print(f"  HC: {processed_count['HC']}")
+        print(f"  Total: {sum(processed_count.values())}")
+        
+        print(f"\nProcessing statistics:")
+        for cohort in ['PD', 'HC']:
+            if processing_stats[cohort]:
+                stats = processing_stats[cohort]
+                avg_original_length = np.mean([s['original_length'] for s in stats])
+                avg_final_length = np.mean([s['final_length'] for s in stats])
+                avg_length_change = np.mean([s['length_change_ratio'] for s in stats])
+                
+                print(f"  {cohort}:")
+                print(f"    Average original length: {avg_original_length:.2f} seconds")
+                print(f"    Average final length: {avg_final_length:.2f} seconds")
+                print(f"    Average length retention: {avg_length_change:.3f}")
+        
+        print(f"\nPercentile-based filtering principles:")
+        print(f"  ✓ {strategy.replace('_', ' ').title()} band-pass filtering")
+        print(f"  ✓ Frequency range: {filter_params['low_cutoff']:.1f}-{filter_params['high_cutoff']:.1f} Hz")
+        print(f"  ✓ Dataset-specific percentile analysis")
         print(f"  ✓ Minimal silence removal (preserve natural pauses)")
         print(f"  ✓ NO amplitude normalization (preserve dynamics)")
         print(f"  ✓ NO length standardization (preserve duration variability)")
@@ -848,7 +1018,7 @@ class AdvancedAudioPreprocessor:
 
 
 def main():
-    """Main function for advanced audio preprocessing"""
+    """Main function for advanced audio preprocessing with percentile-based filtering"""
     print("ADVANCED AUDIO PREPROCESSING FOR PARKINSON'S DISEASE ANALYSIS")
     print("="*80)
     
@@ -863,20 +1033,35 @@ def main():
         print("Analysis failed. Please check your data directory.")
         return
     
-    # Step 2: Analysis-based preprocessing
-    print("\nSTEP 2: Analysis-Based Preprocessing")
-    processed_count, processing_stats = preprocessor.preprocess_with_analysis_based_settings(
-        "data", "analysis_based_preprocessed_data"
+    # Step 2: Percentile-based preprocessing with 1st-99th percentile
+    print("\nSTEP 2: Percentile-Based Preprocessing (1st-99th Percentile)")
+    processed_count_1_99, processing_stats_1_99 = preprocessor.preprocess_with_percentile_filtering(
+        "data", "percentile_1_99_filtered_data", "percentile_1_99"
+    )
+    
+    # Step 3: Optional - Conservative preprocessing with 2.5th-97.5th percentile
+    print("\nSTEP 3: Conservative Preprocessing (2.5th-97.5th Percentile)")
+    processed_count_2_5_97_5, processing_stats_2_5_97_5 = preprocessor.preprocess_with_percentile_filtering(
+        "data", "percentile_2_5_97_5_filtered_data", "percentile_2_5_97_5"
+    )
+    
+    # Step 4: Energy-based preprocessing with 95% energy range
+    print("\nSTEP 4: Energy-Based Preprocessing (95% Energy Range)")
+    processed_count_95, processing_stats_95 = preprocessor.preprocess_with_percentile_filtering(
+        "data", "frequency_range_95_filtered_data", "frequency_range_95"
     )
     
     print(f"\n{'='*80}")
-    print("ALL PREPROCESSING TASKS COMPLETED!")
+    print("ALL PERCENTILE-BASED PREPROCESSING COMPLETED!")
     print(f"{'='*80}")
     print("\nGenerated outputs:")
     print("1. preprocessing_analysis/ - Comprehensive analysis visualizations")
-    print("2. analysis_based_preprocessed_data/ - Preprocessed audio files")
+    print("2. percentile_1_99_filtered_data/ - 1st-99th percentile filtered audio")
+    print("3. percentile_2_5_97_5_filtered_data/ - 2.5th-97.5th percentile filtered audio")
+    print("4. frequency_range_95_filtered_data/ - 95% energy range filtered audio")
     print("\nKey achievements:")
-    print("✓ Frequency filtering with percentile-based cutoffs")
+    print("✓ Band-pass filtering using 1st-99th percentile frequency range")
+    print("✓ Multiple percentile strategies for comparison")
     print("✓ Silence analysis and selective removal")
     print("✓ Audio length distribution analysis")
     print("✓ Signal comparison and low-frequency assessment")
