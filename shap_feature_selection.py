@@ -206,6 +206,15 @@ class PDFeatureSelector:
             print(f"\n📊 Aggregating feature importance across models...")
             combined_df = pd.concat(all_importance, ignore_index=True)
             
+            # Save detailed importance scores for documentation
+            output_dir = "shap_analysis_results"
+            os.makedirs(output_dir, exist_ok=True)
+            
+            # Save raw importance scores from each model
+            detailed_scores_file = f"{output_dir}/detailed_feature_importance_scores.csv"
+            combined_df.to_csv(detailed_scores_file, index=False)
+            print(f"   📝 Detailed importance scores saved to: {detailed_scores_file}")
+            
             # Calculate aggregate statistics
             agg_importance = combined_df.groupby('feature')['importance'].agg([
                 'mean', 'std', 'count'
@@ -218,12 +227,143 @@ class PDFeatureSelector:
             # Add rankings
             agg_importance['rank'] = range(1, len(agg_importance) + 1)
             
+            # Save aggregated importance scores
+            aggregated_scores_file = f"{output_dir}/aggregated_feature_importance.csv"
+            agg_importance.to_csv(aggregated_scores_file, index=False)
+            print(f"   📊 Aggregated importance scores saved to: {aggregated_scores_file}")
+            
             self.feature_importance['aggregated'] = agg_importance
             
             print(f"   Aggregated importance for {len(agg_importance)} features")
             print(f"\n🏆 TOP 5 MOST IMPORTANT FEATURES:")
             for i, row in agg_importance.head(5).iterrows():
                 print(f"     {row['rank']}. {row['feature']}: {row['mean']:.4f} ± {row['std']:.4f}")
+            
+            # Generate calculation documentation
+            self._document_calculation_process(combined_df, agg_importance, output_dir)
+        
+        return True
+        
+    def _document_calculation_process(self, combined_df, agg_importance, output_dir):
+        """Generate detailed documentation of calculation process"""
+        print(f"\n📋 Generating calculation documentation...")
+        
+        calc_doc_file = f"{output_dir}/calculation_process_documentation.md"
+        
+        with open(calc_doc_file, 'w', encoding='utf-8') as f:
+            f.write("# FEATURE IMPORTANCE CALCULATION PROCESS DOCUMENTATION\n\n")
+            f.write(f"**Generated on:** {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}\n\n")
+            
+            # Step-by-step calculation explanation
+            f.write("## 📊 Step-by-Step Calculation Process\n\n")
+            
+            f.write("### Step 1: Raw Feature Importance Extraction\n")
+            f.write("```python\n")
+            f.write("# From each trained model\n")
+            f.write("for model_name, model in models.items():\n")
+            f.write("    importance_scores = model.feature_importances_  # Built-in importance\n")
+            f.write("    # Create DataFrame with feature names and scores\n")
+            f.write("```\n\n")
+            
+            # Show raw data summary
+            f.write("### Step 2: Raw Data Summary\n")
+            f.write(f"- **Total Records:** {len(combined_df)}\n")
+            f.write(f"- **Features Analyzed:** {len(self.feature_names)}\n")
+            f.write(f"- **Models Used:** {combined_df['model'].unique().tolist()}\n\n")
+            
+            # Show sample raw data
+            f.write("### Step 3: Sample Raw Importance Scores\n")
+            f.write("| Feature | Model | Raw Importance |\n")
+            f.write("|---------|-------|----------------|\n")
+            
+            # Show top 5 from each model
+            for model in combined_df['model'].unique():
+                model_data = combined_df[combined_df['model'] == model].head(3)
+                for _, row in model_data.iterrows():
+                    f.write(f"| {row['feature']} | {row['model']} | {row['importance']:.6f} |\n")
+            f.write("\n")
+            
+            # Aggregation formula
+            f.write("### Step 4: Aggregation Formula\n")
+            f.write("```python\n")
+            f.write("# Group by feature and calculate statistics\n")
+            f.write("agg_importance = combined_df.groupby('feature')['importance'].agg([\n")
+            f.write("    'mean',    # Average importance across models\n")
+            f.write("    'std',     # Standard deviation\n")
+            f.write("    'count'    # Number of models\n")
+            f.write("]).reset_index()\n\n")
+            f.write("# Sort by mean importance (descending)\n")
+            f.write("agg_importance = agg_importance.sort_values('mean', ascending=False)\n")
+            f.write("```\n\n")
+            
+            # Mathematical explanation
+            f.write("### Step 5: Mathematical Calculation\n")
+            f.write("For each feature `i`:\n\n")
+            f.write("**Mean Importance:**\n")
+            f.write("```\n")
+            f.write("Mean_i = (RF_importance_i + XGBoost_importance_i) / 2\n")
+            f.write("```\n\n")
+            f.write("**Standard Deviation:**\n")
+            f.write("```\n")
+            f.write("Std_i = sqrt(((RF_importance_i - Mean_i)² + (XGBoost_importance_i - Mean_i)²) / 1)\n")
+            f.write("```\n\n")
+            
+            # Show calculation examples
+            f.write("### Step 6: Calculation Examples (Top 5 Features)\n")
+            f.write("| Rank | Feature | RF Score | XGBoost Score | Mean | Std | Formula |\n")
+            f.write("|------|---------|----------|---------------|------|-----|----------|\n")
+            
+            top_5 = agg_importance.head(5)
+            for _, row in top_5.iterrows():
+                feature = row['feature']
+                
+                # Get individual model scores
+                rf_score = combined_df[(combined_df['feature'] == feature) & 
+                                     (combined_df['model'] == 'RandomForest')]['importance']
+                xgb_score = combined_df[(combined_df['feature'] == feature) & 
+                                      (combined_df['model'] == 'XGBoost')]['importance']
+                
+                rf_val = rf_score.iloc[0] if len(rf_score) > 0 else 0.0
+                xgb_val = xgb_score.iloc[0] if len(xgb_score) > 0 else 0.0
+                
+                formula = f"({rf_val:.4f} + {xgb_val:.4f}) / 2"
+                
+                f.write(f"| {row['rank']} | {feature} | {rf_val:.6f} | {xgb_val:.6f} | {row['mean']:.6f} | {row['std']:.6f} | {formula} |\n")
+            
+            f.write("\n### Step 7: Ranking Assignment\n")
+            f.write("```python\n")
+            f.write("# Assign ranks based on sorted mean importance\n")
+            f.write("agg_importance['rank'] = range(1, len(agg_importance) + 1)\n")
+            f.write("```\n\n")
+            
+            # Selection criteria
+            f.write("### Step 8: Top Features Selection\n")
+            f.write("**Selection Criteria:**\n")
+            f.write("- Features sorted by **Mean Importance** (highest first)\n")
+            f.write("- Top 15 selected using: `agg_importance.head(15)`\n")
+            f.write("- Selection is **automatic** based on ranking\n\n")
+            
+            f.write("**Why this approach?**\n")
+            f.write("1. **Consensus-based:** Uses multiple models for robust selection\n")
+            f.write("2. **Statistically sound:** Considers both mean and variance\n")
+            f.write("3. **Reproducible:** Same process gives same results\n")
+            f.write("4. **Interpretable:** Clear mathematical foundation\n\n")
+            
+            # Show final rankings
+            f.write("### Step 9: Final Feature Rankings\n")
+            f.write("| Rank | Feature | Mean Importance | Std | Selection |\n")
+            f.write("|------|---------|-----------------|-----|----------|\n")
+            
+            for i, row in agg_importance.iterrows():
+                selection = "✅ Top 15" if row['rank'] <= 15 else "❌ Not selected"
+                f.write(f"| {row['rank']} | {row['feature']} | {row['mean']:.6f} | {row['std']:.6f} | {selection} |\n")
+            
+            f.write(f"\n---\n")
+            f.write(f"**Total Features Analyzed:** {len(agg_importance)}\n")
+            f.write(f"**Top 15 Selected Features:** {len(agg_importance.head(15))}\n")
+            f.write(f"**Selection Threshold:** Mean importance ≥ {agg_importance.iloc[14]['mean']:.6f}\n")
+        
+        print(f"   📋 Calculation documentation saved to: {calc_doc_file}")
         
         return True
         
