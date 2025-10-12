@@ -1,0 +1,6 @@
+feature
+mfcc_8_mean
+mfcc_7_std
+spectral_flux_mean
+stft_energy_mean
+mfcc_5_mean

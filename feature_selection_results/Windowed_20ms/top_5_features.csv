@@ -1,0 +1,6 @@
+feature
+mfcc_4_std
+mfcc_13_std
+spectral_entropy_std
+spectral_flux_mean
+mfcc_2_std
