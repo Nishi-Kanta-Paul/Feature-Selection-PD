@@ -848,8 +848,12 @@ def main():
     analyzer = ImprovedVoiceAnalyzer()
     all_results = []
 
-    # Try multiple data directories
+    # CORRECTED: Use basic preprocessed data (NO filtering applied)
+    # This is the CORRECT approach - features from unfiltered audio
     data_paths = [
+        ('HC', 'preprocessed_data_basic/HC'),
+        ('PD', 'preprocessed_data_basic/PD'),
+        # Fallback to other directories if basic preprocessing not done yet
         ('HC', 'Processed_data_sample_raw_voice/rnnoise_out/0'),
         ('PD', 'Processed_data_sample_raw_voice/rnnoise_out/1'),
         ('HC', 'Processed_data_sample_raw_voice/raw_wav/0'),
@@ -889,6 +893,30 @@ def main():
                 file_count += 1
                 print()
         else:
+            # Handle both flat and nested directory structures
+            # First check if there are direct .wav files
+            direct_files = [f for f in os.listdir(dirname) if f.endswith('.wav') and os.path.isfile(os.path.join(dirname, f))]
+            
+            if direct_files:
+                # Process direct files (e.g., preprocessed_data_basic/)
+                print(f"   Found {len(direct_files)} audio files")
+                file_count = 0
+                
+                for filename in direct_files[:10]:  # Process first 10 files
+                    filepath = os.path.join(dirname, filename)
+                    print(f"   [{file_count+1}] {filename}")
+                    
+                    features = analyzer.extract_all_comprehensive_features(filepath)
+                    if features:
+                        result = {'group': group, **features}
+                        all_results.append(result)
+                        processed_any = True
+                    
+                    file_count += 1
+                    print()
+                
+                continue
+            
             # Handle nested directory structure
             subdirs = [d for d in os.listdir(
                 dirname) if os.path.isdir(os.path.join(dirname, d))]

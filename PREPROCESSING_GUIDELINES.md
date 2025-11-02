@@ -2,21 +2,41 @@
 
 ## Complete Guide for Parkinson's Disease Voice Data Preprocessing
 
+## ⚠️ **IMPORTANT CORRECTION**
+
+### **Percentile Filtering Should NOT Be Done at Preprocessing Stage**
+
+**Previous (Incorrect) Approach:**
+
+- Apply percentile-based band-pass filtering during preprocessing
+- Filter audio signals before feature extraction
+
+**Corrected Approach:**
+
+- Basic preprocessing: Format standardization ONLY (16kHz, mono, WAV)
+- NO filtering at this stage
+- Extract features from unfiltered audio
+- Apply percentile-based filtering on FEATURES (optional), not audio
+
+**See [CORRECTED_WORKFLOW.md](CORRECTED_WORKFLOW.md) for detailed explanation**
+
 ---
 
 ## 📋 **OVERVIEW**
 
-This guide provides comprehensive instructions for preprocessing voice/audio data for Parkinson's Disease (PD) research. The preprocessing pipeline converts raw audio recordings into clean, standardized format suitable for feature extraction and analysis.
+This guide provides instructions for **basic** preprocessing of voice/audio data for Parkinson's Disease (PD) research. The preprocessing pipeline converts raw audio recordings into clean, standardized format (16kHz, mono, WAV) **WITHOUT applying any frequency filtering**.
+
+**Key Change:** Filtering is **NOT** part of preprocessing. Features should be extracted from full-bandwidth audio.
 
 ---
 
 ## 🎯 **PREPROCESSING OBJECTIVES**
 
-1. **Standardize Audio Format**: Convert all audio to consistent format (16kHz, mono, WAV)
-2. **Noise Reduction**: Remove background noise and artifacts
-3. **Signal Filtering**: Apply frequency filtering to preserve speech content
-4. **Amplitude Normalization**: Standardize signal amplitude levels
-5. **Quality Control**: Ensure processed audio maintains voice characteristics
+1. ✅ **Standardize Audio Format**: Convert all audio to consistent format (16kHz, mono, WAV)
+2. ✅ **Quality Control**: Ensure audio meets minimum quality standards
+3. ❌ **NO Filtering**: Do NOT apply band-pass or percentile-based filtering
+4. ❌ **NO Noise Reduction**: Keep original signal characteristics
+5. ✅ **Preserve Information**: Maintain all frequency content for feature extraction
 
 ---
 
@@ -29,17 +49,11 @@ This guide provides comprehensive instructions for preprocessing voice/audio dat
 - **Bit Depth**: 16-bit
 - **Format**: WAV (uncompressed)
 - **Duration**: Typically 10+ seconds for reliable analysis
-
-### Signal Processing Parameters:
-
-- **Frequency Range**: 80 Hz - 8,000 Hz (speech bandwidth)
-- **Filtering Method**: Percentile-based spectral filtering
-- **Normalization**: RMS-based amplitude normalization
-- **Window Function**: Hanning window for spectral analysis
+- **Filtering**: **NONE** (preserve full frequency content)
 
 ---
 
-## 🚀 **PREPROCESSING PIPELINE**
+## 🚀 **PREPROCESSING PIPELINE (CORRECTED)**
 
 ### **Step 1: Raw Audio Loading**
 
@@ -52,52 +66,38 @@ This guide provides comprehensive instructions for preprocessing voice/audio dat
 **Process:**
 
 1. Load audio file using librosa or soundfile
-2. Convert to mono if stereo
-3. Resample to 16kHz if different sample rate
-4. Normalize to [-1, 1] range
+2. Extract waveform and metadata
 
-### **Step 2: Noise Reduction (Optional)**
+### **Step 2: Format Standardization**
 
 ```python
-# Apply noise reduction algorithms
-# Tools: RNNoise, Spectral Subtraction, or Wiener filtering
+# Convert to standard format
+audio, sr = librosa.load(filepath, sr=16000, mono=True)
 ```
 
-**Methods:**
+**Operations:**
 
-- **RNNoise**: Deep learning-based noise suppression
-- **Spectral Subtraction**: Classical noise reduction
-- **Adaptive Filtering**: Signal-dependent noise removal
+- **Resampling**: Convert to 16kHz if different sample rate
+- **Channel Conversion**: Convert to mono if stereo
+- **Normalization**: Normalize to [-1, 1] range (optional)
+- **NO FILTERING**: Preserve all frequency content
 
-### **Step 3: Frequency Filtering**
+### **Step 3: Save Standardized Audio**
 
 ```python
-# Apply percentile-based spectral filtering
-# Default: 1st-99th percentile filtering
+# Save as 16kHz mono WAV
+import soundfile as sf
+sf.write(output_path, audio, samplerate=16000)
 ```
 
-**Filtering Options:**
+**Output Format:**
 
-- **Conservative (1-99 percentile)**: Removes extreme outliers
-- **Moderate (2.5-97.5 percentile)**: Standard filtering
-- **Aggressive (5-95 percentile)**: Strong noise reduction
+- 16kHz sampling rate
+- Mono channel
+- WAV format (uncompressed)
+- Full frequency bandwidth preserved
 
-**Algorithm:**
-
-1. Compute STFT (Short-Time Fourier Transform)
-2. Calculate magnitude spectrum
-3. Determine percentile thresholds per frequency bin
-4. Apply spectral mask based on percentiles
-5. Reconstruct time-domain signal via ISTFT
-
-### **Step 4: Signal Normalization**
-
-```python
-# RMS-based amplitude normalization
-target_rms = 0.1  # Adjust based on requirements
-```
-
-**Normalization Methods:**
+---
 
 - **Peak Normalization**: Scale to maximum amplitude
 - **RMS Normalization**: Scale based on RMS energy (recommended)

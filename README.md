@@ -6,15 +6,41 @@ Complete pipeline for voice-based Parkinson's Disease detection using comprehens
 
 ## 🎯 **SYSTEM OVERVIEW**
 
-This system processes voice recordings to extract 35 research-validated features for Parkinson's Disease (PD) analysis. The pipeline follows international standards (MDVP) and implements state-of-the-art voice analysis techniques.
+This system processes voice recordings to extract 35+ research-validated features for Parkinson's Disease (PD) analysis. The pipeline follows international standards (MDVP) and implements state-of-the-art voice analysis techniques.
 
 ### **Key Capabilities:**
 
-- ✅ **Comprehensive Feature Extraction**: 35 features across 6 categories
+- ✅ **Comprehensive Feature Extraction**: 35+ features across 6 categories
 - ✅ **Research Compliance**: MDVP standards and literature-based
 - ✅ **PD Discrimination**: HC vs PD classification ready
 - ✅ **Clinical Translation**: Diagnostic threshold compatible
 - ✅ **Production Ready**: Clean, optimized codebase
+
+---
+
+## ⚠️ **IMPORTANT: CORRECTED WORKFLOW**
+
+### **Percentile Filtering Should Be Done AFTER Feature Extraction, NOT Before!**
+
+**❌ WRONG Approach:**
+
+```
+Raw Audio → Percentile Filter → Feature Extraction → Model Training
+```
+
+**✅ CORRECT Approach:**
+
+```
+Raw Audio → Basic Preprocessing (16kHz conversion) → Feature Extraction →
+Percentile-based Feature Filtering (optional) → Model Training
+```
+
+**Why?**
+
+- Percentile filtering on audio signals can remove important voice characteristics
+- Features should be extracted from unfiltered audio for maximum information
+- Percentile-based filtering is better applied on extracted features, not raw audio
+- This allows you to compare different feature sets and select optimal ones
 
 ---
 
@@ -25,9 +51,8 @@ This system processes voice recordings to extract 35 research-validated features
 **Complete guide for audio preprocessing**
 
 - Audio format standardization (16kHz, mono, WAV)
-- Noise reduction and filtering techniques
+- **NO filtering at preprocessing stage** (corrected approach)
 - Quality control and validation
-- Percentile-based spectral filtering
 - Implementation instructions
 
 ### 🔬 **[FEATURE_EXTRACTION_GUIDELINES.md](FEATURE_EXTRACTION_GUIDELINES.md)**
@@ -42,26 +67,38 @@ This system processes voice recordings to extract 35 research-validated features
 
 ---
 
-## 🚀 **QUICK START**
+## 🚀 **QUICK START (CORRECTED WORKFLOW)**
 
-### **1. Audio Preprocessing:**
+### **Step 1: Basic Audio Preprocessing (Format Standardization Only)**
 
 ```bash
-# Process raw audio to 16kHz standardized format
+# Convert raw audio to 16kHz mono WAV (NO FILTERING)
 python audio_preprocessing.py
 ```
 
-### **2. Feature Extraction:**
+**Output:** `preprocessed_data_basic/` - Clean 16kHz mono WAV files
+
+### **Step 2: Feature Extraction**
 
 ```bash
-# Extract all 35 PD features
-python comprehensive_pd_features.py
+# Extract all 35+ PD features from basic preprocessed audio
+python comprehensive_pd_features_final.py
 ```
 
-### **3. Results:**
+**Output:** `comprehensive_features/pd_features_comprehensive.csv`
 
+### **Step 3: Feature Selection (Optional - Percentile Filtering on Features)**
+
+```bash
+# Apply percentile-based filtering on EXTRACTED FEATURES
+python feature_selection.py
 ```
-comprehensive_features/pd_features_comprehensive.csv
+
+### **Step 4: Model Training**
+
+```bash
+# Train classifier on selected features
+python model_training.py
 ```
 
 ---

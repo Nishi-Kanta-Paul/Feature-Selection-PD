@@ -1,9 +1,22 @@
 # COMPREHENSIVE PD VOICE FEATURE EXTRACTION - PSEUDOCODE FLOW
 
+## ⚠️ **CORRECTED WORKFLOW**
+
+**IMPORTANT:** Features extracted from **UNFILTERED** audio (basic preprocessed only)
+
+```
+Correct Pipeline:
+Raw Audio → Basic Preprocessing (16kHz, NO filter) →
+Feature Extraction (79 features) → Optional Feature Selection → Model Training
+```
+
+---
+
 ## 🔄 COMPLETE FEATURE EXTRACTION WORKFLOW
 
 ```
 PROGRAM: Comprehensive PD Voice Feature Extraction for Parkinson's Disease Detection
+INPUT: Basic preprocessed audio from preprocessed_data_basic/ (UNFILTERED 16kHz audio)
 
 CLASS ImprovedAudioLoader:
     // Step 1: Audio File Loading
